@@ -1,0 +1,31 @@
+services:
+
+  ai-quality-service:
+    build:
+      context: ./task2_3_4_quality_xai
+      dockerfile: Dockerfile
+    container_name: brfn-ai-quality
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./task2_3_4_quality_xai/models:/app/models  # Persist uploaded models
+    environment:
+      - DESD_API_URL=${DESD_API_URL:-http://host.docker.internal:8089/api}
+      - DESD_SERVICE_USERNAME=${DESD_SERVICE_USERNAME:-admin}
+      - DESD_SERVICE_PASSWORD=${DESD_SERVICE_PASSWORD:-demo1234}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Lets container reach DESD on localhost
+
+  ai-demand-service:
+    build:
+      context: ./task1_order_prediction
+      dockerfile: Dockerfile
+    container_name: brfn-ai-demand
+    ports:
+      - "8002:8002"
+    environment:
+      - DESD_API_URL=${DESD_API_URL:-http://host.docker.internal:8089/api}
+      - DESD_SERVICE_USERNAME=${DESD_SERVICE_USERNAME:-admin}
+      - DESD_SERVICE_PASSWORD=${DESD_SERVICE_PASSWORD:-demo1234}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
