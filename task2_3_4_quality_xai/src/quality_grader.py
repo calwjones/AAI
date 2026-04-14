@@ -1,6 +1,6 @@
 import io
 import numpy as np
-from model_upload import ModelManager
+from src.model_upload import ModelManager
 
 IMG_SIZE = (224, 224)
 
