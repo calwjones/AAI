@@ -1,19 +1,19 @@
 import { useState } from 'react'
 import axios from 'axios'
-import './App.css'
+import './style.css'
 
 function App() {
   const [selectedImage, setSelectedImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [explanation, setExplanation] = useState(null)
   const [loading, setLoading] = useState(false)
-
+  
   const handleImageUpload = (event) => {
     const file = event.target.files[0]
     if (file) {
       setSelectedImage(file)
-      // Create preview URL
       setImagePreview(URL.createObjectURL(file))
+      setExplanation(null)
     }
   }
 
@@ -25,7 +25,7 @@ function App() {
     try {
       const formData = new FormData()
       formData.append('image', selectedImage)
-      formData.append('product_id', 123) // Mock product ID
+      formData.append('product_id', 123)
       
       const response = await axios.post('http://localhost:8001/explain', formData)
       setExplanation(response.data)
@@ -38,48 +38,201 @@ function App() {
   }
 
   return (
-    <div className="App">
-      <h1>XAI Explanation Dashboard</h1>
-      
-      <div className="upload-section">
-        <h2>Upload Image</h2>
-        <input 
-          type="file" 
-          accept="image/*" 
-          onChange={handleImageUpload}
-        />
-        
-        {imagePreview && (
-          <div>
-            <img src={imagePreview} alt="Preview" style={{ maxWidth: '300px' }} />
-            <button onClick={handleExplain} disabled={loading}>
-              {loading ? 'Analyzing...' : 'Explain Prediction'}
-            </button>
-          </div>
-        )}
-      </div>
+    <>
+      {/* Simplified Navbar */}
+      <nav className="navbar">
+        <div className="navbar-brand">DESD Marketplace - Quality Analysis</div>
+      </nav>
 
-          {explanation && (
-            <div className="explanation-section">
-              <h2>Explanation</h2>
-              <p><strong>Prediction:</strong> {explanation.predicted_class}</p>
-              <p><strong>Confidence:</strong> {(explanation.confidence * 100).toFixed(1)}%</p>
-              <p><strong>Layer Used:</strong> {explanation.layer_used}</p>
-              <p>{explanation.explanation}</p>
+      {/* Full width container */}
+      
+      <div style={{ 
+        maxWidth: '1200px', 
+        margin: '0 auto',
+        padding: '2rem 1.5rem'
+      }}>
+        {/* Page Header */}
+        <div className="dashboard-header">
+          <h1>Quality Analysis Dashboard</h1>
+        </div>
+
+        {/* Upload Card */}
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <h2 style={{ 
+            fontSize: '1.1rem', 
+            fontWeight: '600', 
+            marginBottom: '1rem',
+            color: 'var(--text)',
+            textAlign: 'center'
+          }}>
+            Upload Product Image
+          </h2>
+          <div style={{ marginBottom: '1rem', textAlign: 'center' }}>
+            <label htmlFor="file-upload" className="btn" style={{ 
+              cursor: 'pointer',
+              display: 'inline-block'
+            }}>
+              Choose Image
+            </label>
+            <input 
+              id="file-upload"
+              type="file" 
+              accept="image/*" 
+              onChange={handleImageUpload}
+              style={{ display: 'none' }}
+            />
+            {selectedImage && (
+              <span style={{ 
+                marginLeft: '1rem', 
+                color: 'var(--muted)',
+                fontSize: '0.9rem'
+              }}>
+                {selectedImage.name}
+              </span>
+            )}
+          </div>
           
-          {explanation.heatmap_base64 && (
-            <div>
-              <h3>Grad-CAM Heatmap</h3>
+          {imagePreview && (
+            <div style={{ textAlign: 'center' }}>
               <img 
-                src={`data:image/png;base64,${explanation.heatmap_base64}`} 
-                alt="Heatmap"
-                style={{ maxWidth: '500px' }}
+                src={imagePreview} 
+                alt="Product" 
+                style={{ 
+                  maxHeight: '400px',
+                  maxWidth: '100%',
+                  marginBottom: '1rem',
+                  borderRadius: 'var(--radius)'
+                }}
               />
+              <br />
+              <button 
+                className="btn"
+                onClick={handleExplain} 
+                disabled={loading}
+              >
+                {loading ? 'Analyzing...' : 'Analyze Quality'}
+              </button>
             </div>
           )}
         </div>
-      )}
-    </div>
+
+        {/* Results */}
+        {explanation && (
+          <>
+            {/* Summary Cards */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+              gap: '1rem',
+              marginBottom: '1.5rem'
+            }}>
+              <div className="card">
+                <div style={{ 
+                  fontSize: '0.75rem', 
+                  fontWeight: '600',
+                  color: '#666',
+                  textTransform: 'uppercase',
+                  marginBottom: '0.5rem',
+                  letterSpacing: '0.5px'
+                }}>
+                  Classification
+                </div>
+                <p style={{ 
+                  fontSize: '1.4rem', 
+                  fontWeight: '600', 
+                  color: 'var(--text)',
+                  margin: 0
+                }}>
+                  {explanation.predicted_class}
+                </p>
+              </div>
+              <div className="card">
+                <div style={{ 
+                  fontSize: '0.75rem', 
+                  fontWeight: '600',
+                  color: '#666',
+                  textTransform: 'uppercase',
+                  marginBottom: '0.5rem',
+                  letterSpacing: '0.5px'
+                }}>
+                  Confidence Level
+                </div>
+                <p style={{ 
+                  fontSize: '1.4rem', 
+                  fontWeight: '600', 
+                  color: 'var(--accent)',
+                  margin: 0
+                }}>
+                  {(explanation.confidence * 100).toFixed(1)}%
+                </p>
+              </div>
+              <div className="card">
+                <div style={{ 
+                  fontSize: '0.75rem', 
+                  fontWeight: '600',
+                  color: '#666',
+                  textTransform: 'uppercase',
+                  marginBottom: '0.5rem',
+                  letterSpacing: '0.5px'
+                }}>
+                  Analysis Layer
+                </div>
+                <p style={{ 
+                  fontSize: '0.95rem', 
+                  color: 'var(--muted)',
+                  margin: 0
+                }}>
+                  {explanation.layer_used}
+                </p>
+              </div>
+            </div>
+
+            {/* Explanation */}
+            <div className="card" style={{ marginBottom: '1.5rem' }}>
+              <h2 style={{ 
+                fontSize: '1.1rem', 
+                fontWeight: '600', 
+                marginBottom: '0.75rem',
+                color: 'var(--text)'
+              }}>
+                Explanation
+              </h2>
+              <p style={{ color: 'var(--muted)', margin: 0 }}>
+                {explanation.explanation}
+              </p>
+            </div>
+
+            {/* Heatmap */}
+            {explanation.heatmap_base64 && (
+              <div className="card">
+                <h2 style={{ 
+                  fontSize: '1.1rem', 
+                  fontWeight: '600', 
+                  marginBottom: '0.5rem',
+                  color: 'var(--text)'
+                }}>
+                  Visual Analysis (Grad-CAM)
+                </h2>
+                <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+                  Highlighted areas show regions that influenced the quality assessment
+                </p>
+                <div style={{ textAlign: 'center' }}>
+                  <img 
+                    src={`data:image/png;base64,${explanation.heatmap_base64}`} 
+                    alt="Heatmap"
+                    style={{ 
+                      maxHeight: '500px',
+                      maxWidth: '100%',
+                      borderRadius: 'var(--radius)'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </>
   )
 }
 
