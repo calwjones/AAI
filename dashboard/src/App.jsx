@@ -59,12 +59,13 @@ function App() {
         )}
       </div>
 
-      {explanation && (
-        <div className="explanation-section">
-          <h2>Explanation</h2>
-          <p><strong>Confidence:</strong> {(explanation.confidence * 100).toFixed(1)}%</p>
-          <p><strong>Layer Used:</strong> {explanation.layer_used}</p>
-          <p>{explanation.explanation}</p>
+          {explanation && (
+            <div className="explanation-section">
+              <h2>Explanation</h2>
+              <p><strong>Prediction:</strong> {explanation.predicted_class}</p>
+              <p><strong>Confidence:</strong> {(explanation.confidence * 100).toFixed(1)}%</p>
+              <p><strong>Layer Used:</strong> {explanation.layer_used}</p>
+              <p>{explanation.explanation}</p>
           
           {explanation.heatmap_base64 && (
             <div>

@@ -37,6 +37,8 @@ class Explainer:
         
         # Load and preprocess image
         img = Image.open(io.BytesIO(image_bytes))
+        if img.mode != 'RGB':
+            img = img.convert('RGB')
         img = img.resize((224, 224))  # Adjust based on model's input size
         img_array = keras.preprocessing.image.img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0)
@@ -91,14 +93,21 @@ class Explainer:
         heatmap_base64 = base64.b64encode(buffer).decode('utf-8')
         
         # Generate explanation text
+        pred_index_int = int(pred_index)
         confidence = float(predictions[0][pred_index])
-        explanation = self._generate_explanation_text(heatmap, confidence)
-        
+
+        # Get predicted class name
+        predicted_class = self._get_class_name(model, pred_index_int, predictions)
+
+        explanation = self._generate_explanation_text(heatmap, confidence, predicted_class)
+
         return {
             "heatmap_base64": heatmap_base64,
             "explanation": explanation,
             "confidence": confidence,
-            "layer_used": last_conv_layer_name
+            "layer_used": last_conv_layer_name,
+            "predicted_class": predicted_class,  # ADD THIS
+            "prediction_index": pred_index_int
         }
     
     def _find_last_conv_layer(self, model):
@@ -108,13 +117,13 @@ class Explainer:
                 return layer.name
         return model.layers[-2].name  # Fallback
     
-    def _generate_explanation_text(self, heatmap, confidence):
+    def _generate_explanation_text(self, heatmap, confidence, predicted_class):
         """Generate human-readable explanation from heatmap"""
         # Find regions of high activation
         high_activation = np.where(heatmap > 0.7 * np.max(heatmap))
         
         if len(high_activation[0]) > 0:
-            # Determine which region (top, bottom, left, right, center)
+            # Determine which region
             avg_y = np.mean(high_activation[0])
             avg_x = np.mean(high_activation[1])
             height, width = heatmap.shape[:2]
@@ -133,9 +142,9 @@ class Explainer:
             else:
                 region += "-center"
             
-            return f"Model focused on {region} region with {confidence:.1%} confidence. Detected potential quality issues in highlighted areas."
+            return f"Predicted as '{predicted_class}' with {confidence:.1%} confidence. Model focused on {region} region."
         else:
-            return f"Model made prediction with {confidence:.1%} confidence based on overall image features."
+            return f"Predicted as '{predicted_class}' with {confidence:.1%} confidence based on overall image features."
         
     def _get_fallback_model(self):
         """Load MobileNetV2 as fallback for development"""
@@ -148,3 +157,25 @@ class Explainer:
         )
         
         return model
+    def _get_class_name(self, model, pred_index, predictions):
+        """Get human-readable class name for prediction"""
+        
+        # Check if this is MobileNetV2 (ImageNet) by checking output shape
+        if predictions.shape[-1] == 1000:  # ImageNet has 1000 classes
+            try:
+                from tensorflow.keras.applications.mobilenet_v2 import decode_predictions
+                # Use the actual predictions
+                decoded = decode_predictions(predictions, top=1)[0][0]
+                # decoded format: ('n02834778', 'banana', 0.9362)
+                return decoded[1]  # Returns 'banana'
+            except Exception as e:
+                print(f"Could not decode prediction: {e}")
+                return f"ImageNet_Class_{pred_index}"
+        
+        # For Person 2's custom model (when integrated)
+        # Will have 2 classes: ['fresh', 'rotten']
+        class_labels = {
+            0: "Fresh",
+            1: "Rotten"
+        }
+        return class_labels.get(pred_index, f"Class_{pred_index}")
