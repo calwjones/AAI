@@ -2,7 +2,7 @@ import io
 import pickle
 import numpy as np
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import sys
 sys.path.insert(0, "../src")
@@ -10,6 +10,23 @@ sys.path.insert(0, "../src")
 from service import app
 
 client = TestClient(app)
+
+
+class _DummyClassifier:
+    """Picklable stand-in for an sklearn classifier (MagicMock is not picklable on Python 3.12+)."""
+
+    def predict_proba(self, X):
+        return np.array([[0.1, 0.9]])
+
+
+def _upload_dummy_pkl(version: str = "v-test") -> None:
+    buf = io.BytesIO(pickle.dumps(_DummyClassifier()))
+    response = client.post(
+        "/upload-model",
+        data={"version": version, "accuracy": 0.91, "f1_score": 0.89, "notes": "unit test"},
+        files={"model_file": ("model.pkl", buf, "application/octet-stream")},
+    )
+    assert response.status_code == 200, response.text
 
 
 def test_health_check():
@@ -30,10 +47,7 @@ def test_upload_invalid_extension():
 
 
 def test_upload_valid_pkl_model():
-    dummy_model = MagicMock()
-    dummy_model.predict_proba = MagicMock(return_value=np.array([[0.1, 0.9]]))
-    model_bytes = io.BytesIO(pickle.dumps(dummy_model))
-
+    model_bytes = io.BytesIO(pickle.dumps(_DummyClassifier()))
     response = client.post(
         "/upload-model",
         data={"version": "v1.0-test", "accuracy": 0.91, "f1_score": 0.89, "notes": "unit test"},
@@ -57,6 +71,8 @@ def test_grade_requires_image():
 
 
 def test_grade_returns_valid_structure():
+    _upload_dummy_pkl(version="grade-test")
+
     from PIL import Image
     img = Image.new("RGB", (10, 10), color=(255, 255, 255))
     buf = io.BytesIO()
