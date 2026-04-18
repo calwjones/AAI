@@ -6,14 +6,12 @@ __pycache__/
 venv/
 .pytest_cache/
 
-# Model binaries — distributed via Google Drive, not git (too large)
 *.keras
 *.h5
 *.pt
 *.pkl
+!task2_3_4_quality_xai/models/best_model_phase2.keras
 
-# Per-contributor model registry (local state)
 **/models/versions.json
 
-# Local handover drop zone
 newfiles/

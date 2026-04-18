@@ -77,5 +77,5 @@ class QualityGrader:
             "size_score": 88.0,
             "ripeness_score": 76.0,
             "model_version": "dummy-placeholder",
-            "note": "No model loaded — this is a placeholder result.",
+            "note": "No model loaded, placeholder result.",
         }

@@ -13,8 +13,6 @@ client = TestClient(app)
 
 
 class _DummyClassifier:
-    """Picklable stand-in for an sklearn classifier (MagicMock is not picklable on Python 3.12+)."""
-
     def predict_proba(self, X):
         return np.array([[0.1, 0.9]])
 

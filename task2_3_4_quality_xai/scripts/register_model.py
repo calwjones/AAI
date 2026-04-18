@@ -1,13 +1,8 @@
-"""Register an on-disk model file into models/versions.json.
-
-The HTTP upload flow (POST /upload-model) is the canonical way to introduce a
-new model, but during local development it is friction to re-upload a 25 MB
-.keras every time the container rebuilds. This script writes the metadata
-entry directly so ModelManager.load_latest() picks the file up at startup.
+"""Register a local model file into models/versions.json without HTTP upload.
 
 Usage:
     python scripts/register_model.py models/best_model_phase2.keras v1_phase2 \
-        --accuracy 0.991 --notes "Charles handover, MobileNetV2"
+        --accuracy 0.991 --notes "MobileNetV2"
 """
 from __future__ import annotations
 
@@ -50,7 +45,7 @@ def main() -> None:
     args = parser.parse_args()
 
     entry = register(args.filepath, args.version, args.accuracy, args.f1, args.notes)
-    print(f"Registered {entry['version']} → {entry['filepath']}")
+    print(f"Registered {entry['version']} -> {entry['filepath']}")
 
 
 if __name__ == "__main__":

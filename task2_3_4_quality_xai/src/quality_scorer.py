@@ -1,9 +1,7 @@
-"""Quality scoring for the BRFN fruit/veg grader (Task 2 handover from Charles).
+"""Quality scoring for the BRFN fruit/veg grader.
 
-The classifier predicts fresh vs. rotten. The Kaggle dataset has no
-Color/Size/Ripeness labels, so those three scores are derived from image
-features + the model's fresh-confidence, then mapped to A/B/C using the
-case-study thresholds:
+Classifier predicts fresh vs. rotten. Colour/Size/Ripeness scores are
+derived from image features plus fresh-confidence, then mapped to A/B/C:
 
     A: Color >= 75, Size >= 80, Ripeness >= 70
     B: Color >= 65, Size >= 70, Ripeness >= 60
@@ -24,8 +22,6 @@ def load_quality_model(model_path):
 
 
 def compute_color_score(img_array):
-    # HSV saturation tracks vividness (fresh produce is more saturated than
-    # brown/grey rot). Brightness penalised for being too dark or too bleached.
     img_uint8 = (img_array * 255).astype(np.uint8)
     hsv = cv2.cvtColor(img_uint8, cv2.COLOR_RGB2HSV)
 
@@ -38,9 +34,6 @@ def compute_color_score(img_array):
 
 
 def compute_size_score(img_array):
-    # Otsu threshold → foreground fraction. Ideal fill is 40–70% of the frame;
-    # smaller means the produce is lost in background, larger means the shot
-    # is over-cropped.
     img_uint8 = (img_array * 255).astype(np.uint8)
     gray = cv2.cvtColor(img_uint8, cv2.COLOR_RGB2GRAY)
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -57,8 +50,6 @@ def compute_size_score(img_array):
 
 
 def compute_ripeness_score(img_array, fresh_confidence):
-    # Blend model confidence (learned) with colour warmth (warm = reds/yellows
-    # = properly ripe; blue-dominant = under- or over-ripe).
     r_mean = img_array[:, :, 0].mean()
     g_mean = img_array[:, :, 1].mean()
     b_mean = img_array[:, :, 2].mean()
