@@ -2,8 +2,8 @@ import { useState } from 'react'
 import axios from 'axios'
 import './style.css'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-
-
+ 
+ 
 // Mock accuracy data over time
 const mockAccuracyData = [
   { date: 'Apr 8', accuracy: 82 },
@@ -78,7 +78,7 @@ const mockPredictions = [
     model_version: 'v1.2'
   }
 ]
-
+ 
 function App() {
   const [selectedImage, setSelectedImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
@@ -93,7 +93,7 @@ function App() {
       setExplanation(null)
     }
   }
-
+ 
   const handleExplain = async () => {
     if (!selectedImage) return
     
@@ -113,14 +113,14 @@ function App() {
       setLoading(false)
     }
   }
-
+ 
   return (
     <>
       {/* Simplified Navbar */}
       <nav className="navbar">
         <div className="navbar-brand">DESD Marketplace - Quality Analysis</div>
       </nav>
-
+ 
       {/* Full width container */}
       
       <div style={{ 
@@ -132,8 +132,8 @@ function App() {
         <div className="dashboard-header">
           <h1>Quality Analysis Dashboard</h1>
         </div>
-
-
+ 
+ 
         {/* Accuracy Monitoring Chart */}
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <h2 style={{ 
@@ -243,7 +243,7 @@ function App() {
             </tbody>
           </table>
         </div>
-
+ 
         {/* Upload Card */}
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <h2 style={{ 
@@ -303,7 +303,7 @@ function App() {
             </div>
           )}
         </div>
-
+ 
         {/* Results */}
         {explanation && (
           <>
@@ -354,6 +354,37 @@ function App() {
                   {(explanation.confidence * 100).toFixed(1)}%
                 </p>
               </div>
+              
+              {/* Quality Assessment Card */}
+              {explanation.grade && (
+                <div className="card">
+                  <div style={{ 
+                    fontSize: '0.75rem', 
+                    fontWeight: '600',
+                    color: '#666',
+                    textTransform: 'uppercase',
+                    marginBottom: '0.5rem',
+                    letterSpacing: '0.5px'
+                  }}>
+                    Quality Assessment
+                  </div>
+                  <p style={{ 
+                    fontSize: '1.4rem', 
+                    fontWeight: '600', 
+                    color: explanation.grade === 'A' ? 'var(--accent)' : 
+                          explanation.grade === 'C' ? '#c0392b' : 'var(--text)',
+                    margin: '0 0 0.75rem 0'
+                  }}>
+                    Grade {explanation.grade}
+                  </p>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: '1.6' }}>
+                    <div>Color: {explanation.color_score?.toFixed(1)}%</div>
+                    <div>Size: {explanation.size_score?.toFixed(1)}%</div>
+                    <div>Ripeness: {explanation.ripeness_score?.toFixed(1)}%</div>
+                  </div>
+                </div>
+              )}
+              
               <div className="card">
                 <div style={{ 
                   fontSize: '0.75rem', 
@@ -374,7 +405,7 @@ function App() {
                 </p>
               </div>
             </div>
-
+ 
             {/* Explanation */}
             <div className="card" style={{ marginBottom: '1.5rem' }}>
               <h2 style={{ 
@@ -389,7 +420,7 @@ function App() {
                 {explanation.explanation}
               </p>
             </div>
-
+ 
             {/* Heatmap */}
             {explanation.heatmap_base64 && (
               <div className="card">
@@ -423,5 +454,5 @@ function App() {
     </>
   )
 }
-
+ 
 export default App
