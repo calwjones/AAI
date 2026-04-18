@@ -13,3 +13,5 @@ tensorflow>=2.15.0
 scikit-learn>=1.4.0
 
 
+# Quality scorer uses cv2 for colour/size feature extraction
+opencv-python-headless>=4.9.0

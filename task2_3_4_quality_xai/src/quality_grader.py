@@ -34,34 +34,31 @@ class QualityGrader:
         ext = self.model_manager.active_extension
 
         try:
-            img_array = _preprocess_image(image_bytes)
-
             if ext == ".keras":
-                predictions = model.predict(img_array, verbose=0)
-                fresh_confidence = float(predictions[0][1]) if predictions.shape[-1] > 1 else float(predictions[0][0])
-                color, size, ripeness = self._confidence_to_scores(fresh_confidence)
+                from quality_scorer import grade_image_bytes
+                result = grade_image_bytes(image_bytes, model)
+                result["model_version"] = self.model_manager.active_version
+                return result
 
-            elif ext == ".pkl":
+            if ext == ".pkl":
+                img_array = _preprocess_image(image_bytes)
                 flat = img_array.flatten().reshape(1, -1)
                 fresh_confidence = float(model.predict_proba(flat)[0][1])
                 color, size, ripeness = self._confidence_to_scores(fresh_confidence)
+                grade = _scores_to_grade(color, size, ripeness)
+                return {
+                    "grade": grade,
+                    "color_score": round(float(color), 1),
+                    "size_score": round(float(size), 1),
+                    "ripeness_score": round(float(ripeness), 1),
+                    "model_version": self.model_manager.active_version,
+                }
 
-            else:
-                return self._dummy_result()
+            return self._dummy_result()
 
         except Exception as e:
             print(f"Grading error: {e}")
             return self._dummy_result()
-
-        grade = _scores_to_grade(color, size, ripeness)
-
-        return {
-            "grade": grade,
-            "color_score": round(int(color)),
-            "size_score": round(int(size)),
-            "ripeness_score": round(int(ripeness)),
-            "model_version": self.model_manager.active_version,
-        }
 
     def _confidence_to_scores(self, fresh_confidence: float) -> tuple[float, float, float]:
         rng = np.random.default_rng(seed=int(fresh_confidence * 1000))
