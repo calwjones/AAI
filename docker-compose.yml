@@ -8,13 +8,13 @@ services:
     ports:
       - "8001:8001"
     volumes:
-      - ./task2_3_4_quality_xai/models:/app/models  # Persist uploaded models
+      - ./task2_3_4_quality_xai/models:/app/models
     environment:
       - DESD_API_URL=${DESD_API_URL:-http://host.docker.internal:8089/api}
       - DESD_SERVICE_USERNAME=${DESD_SERVICE_USERNAME:-admin}
       - DESD_SERVICE_PASSWORD=${DESD_SERVICE_PASSWORD:-demo1234}
     extra_hosts:
-      - "host.docker.internal:host-gateway"  # Lets container reach DESD on localhost
+      - "host.docker.internal:host-gateway"
 
   ai-demand-service:
     build:
@@ -29,3 +29,13 @@ services:
       - DESD_SERVICE_PASSWORD=${DESD_SERVICE_PASSWORD:-demo1234}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  xai-dashboard:
+    build: ./dashboard
+    container_name: brfn-xai-dashboard
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./dashboard/src:/app/src  # Hot reload for development
+    environment:
+      - VITE_API_URL=http://localhost:8001

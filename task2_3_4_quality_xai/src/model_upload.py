@@ -34,7 +34,7 @@ class ModelManager:
                 with open(path, "rb") as f:
                     self.active_model = pickle.load(f)
 
-            elif extension == ".keras":
+            elif extension in (".keras", ".h5"):
                 from tensorflow import keras
                 self.active_model = keras.models.load_model(str(path))
 

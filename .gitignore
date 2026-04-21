@@ -2,3 +2,15 @@ __pycache__/
 *.pyc
 .env
 .DS_Store
+.venv/
+venv/
+.pytest_cache/
+
+*.keras
+*.h5
+*.pt
+*.pkl
+!task2_3_4_quality_xai/models/best_model_phase2.keras
+!task1_order_prediction/models/order_prediction_model.pkl
+
+**/models/versions.json
