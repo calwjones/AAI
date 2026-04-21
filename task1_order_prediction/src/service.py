@@ -1,8 +1,21 @@
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn
 
-app = FastAPI(title="BRFN Order Prediction Service", version="1.0.0")
+from prediction import OrderPredictor
+
+predictor = OrderPredictor()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    predictor.load()
+    yield
+
+
+app = FastAPI(title="BRFN Order Prediction Service", version="1.0.0", lifespan=lifespan)
 
 
 class PredictRequest(BaseModel):
@@ -12,15 +25,39 @@ class PredictRequest(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "order-prediction"}
+    return {
+        "status": "ok",
+        "service": "order-prediction",
+        "model_loaded": predictor.is_loaded(),
+    }
 
 
 @app.post("/predict")
 def predict(request: PredictRequest):
+    if not predictor.is_loaded():
+        raise HTTPException(status_code=503, detail="Model not loaded.")
+
+    recommendations = predictor.recommend(request.customer_id, top_n=request.top_n)
+    if not recommendations:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No order history found for customer {request.customer_id}.",
+        )
+
     return {
         "customer_id": request.customer_id,
-        "recommendations": [],
+        "recommendations": recommendations,
     }
+
+
+@app.get("/customers")
+def customers():
+    return {"customer_ids": predictor.known_customers()}
+
+
+@app.get("/metadata")
+def metadata():
+    return predictor.metadata
 
 
 if __name__ == "__main__":
