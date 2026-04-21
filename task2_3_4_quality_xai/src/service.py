@@ -56,7 +56,7 @@ async def upload_model(
     f1_score: float = Form(None),
     notes: str = Form(None),
 ):
-    allowed_extensions = {".keras", ".pkl"}
+    allowed_extensions = {".keras", ".h5", ".pkl"}
     filename = model_file.filename
     ext = "." + filename.rsplit(".", 1)[-1] if "." in filename else ""
 
