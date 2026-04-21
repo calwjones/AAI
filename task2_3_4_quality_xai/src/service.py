@@ -1,14 +1,17 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from model_upload import ModelManager
 from interaction_logger import InteractionLogger
 from quality_grader import QualityGrader
+from explainer import Explainer
 
 model_manager = ModelManager()
 logger = InteractionLogger()
 grader = QualityGrader(model_manager)
+explainer = Explainer(model_manager, grader)
 
 
 @asynccontextmanager
@@ -18,7 +21,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="BRFN AI Service", version="1.0.0", lifespan=lifespan)
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/health")
 def health():
@@ -98,6 +107,27 @@ def get_interactions(
         overrides_only=overrides_only,
     )
 
+@app.post("/explain")
+async def explain_prediction(
+    image: UploadFile = File(...),
+    product_id: int = Form(...),
+    user_id: int = Form(None),
+):
+    if not model_manager.is_loaded():
+        raise HTTPException(status_code=503, detail="No model loaded. Upload a model first.")
+
+    image_bytes = await image.read()
+    explanation = explainer.generate_gradcam(image_bytes)
+
+    logger.log(
+        service_type="explanation",
+        user_id=user_id,
+        input_data={"product_id": product_id, "filename": image.filename},
+        prediction=explanation,
+        model_version=model_manager.active_version,
+    )
+
+    return explanation
 
 if __name__ == "__main__":
     uvicorn.run("service:app", host="0.0.0.0", port=8001, reload=True)

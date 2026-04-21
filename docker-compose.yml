@@ -29,3 +29,13 @@ services:
       - DESD_SERVICE_PASSWORD=${DESD_SERVICE_PASSWORD:-demo1234}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  xai-dashboard:
+    build: ./dashboard
+    container_name: brfn-xai-dashboard
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./dashboard/src:/app/src  # Hot reload for development
+    environment:
+      - VITE_API_URL=http://localhost:8001
