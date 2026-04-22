@@ -120,7 +120,7 @@ async def explain_prediction(
     explanation = explainer.generate_gradcam(image_bytes)
 
     logger.log(
-        service_type="explanation",
+        service_type="quality",
         user_id=user_id,
         input_data={"product_id": product_id, "filename": image.filename},
         prediction=explanation,

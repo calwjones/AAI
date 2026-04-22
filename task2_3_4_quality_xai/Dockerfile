@@ -11,4 +11,4 @@ RUN mkdir -p models
 
 EXPOSE 8001
 
-CMD ["uvicorn", "src.service:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "service:app", "--app-dir", "src", "--host", "0.0.0.0", "--port", "8001"]

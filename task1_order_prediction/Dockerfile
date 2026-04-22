@@ -6,4 +6,4 @@ COPY src/ ./src/
 COPY models/ ./models/
 COPY data/ ./data/
 EXPOSE 8002
-CMD ["uvicorn", "src.service:app", "--host", "0.0.0.0", "--port", "8002"]
+CMD ["uvicorn", "service:app", "--app-dir", "src", "--host", "0.0.0.0", "--port", "8002"]

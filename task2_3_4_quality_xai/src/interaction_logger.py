@@ -15,19 +15,21 @@ class InteractionLogger:
             return self._session
 
         session = requests.Session()
+        login_url = f"{DESD_API_URL.rsplit('/api', 1)[0]}/accounts/login/"
         try:
-            session.get(f"{DESD_API_URL}/", timeout=5)
+            session.get(login_url, timeout=5)
             csrftoken = session.cookies.get("csrftoken", "")
 
             login_resp = session.post(
-                f"{DESD_API_URL.rsplit('/api', 1)[0]}/accounts/login/",
+                login_url,
                 data={
                     "username": DESD_USERNAME,
                     "password": DESD_PASSWORD,
                     "csrfmiddlewaretoken": csrftoken,
                 },
-                headers={"Referer": DESD_API_URL},
+                headers={"Referer": login_url},
                 timeout=5,
+                allow_redirects=False,
             )
             if login_resp.status_code in (200, 302):
                 self._session = session
