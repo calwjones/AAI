@@ -1,16 +1,63 @@
-# React + Vite
+# Task 4 — XAI Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite front-end for the Quality Grading & XAI service. The admin-facing half of the case study's Task 4 (Explainable AI & Admin Dashboard) — the Grad-CAM generation itself lives in [`../task2_3_4_quality_xai/`](../task2_3_4_quality_xai/README.md).
 
-Currently, two official plugins are available:
+**Port:** 5173
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## What's on the page
 
-## React Compiler
+- **Navbar** — "DESD Marketplace — Quality Analysis"
+- **Model Accuracy Chart** — rolling 7-day accuracy (Recharts line chart)
+- **Recent Quality Assessments** — table of recent predictions: time, product, producer, grade, sub-scores, confidence
+- **Image Upload** — file picker + live preview + "Analyze Quality" button, POSTs to `/explain`
+- **Results** — classification, confidence, grade, plain-English explanation of which region drove the decision, and the Grad-CAM heatmap rendered inline from a base64 PNG
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## API it talks to
 
-## Expanding the ESLint configuration
+Default: `http://localhost:8001/explain`. Override via `VITE_API_URL` at build time.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Running
+
+Via docker-compose (from repo root):
+
+```bash
+docker compose up xai-dashboard --build
+```
+
+Source is volume-mounted, so edits hot-reload through Vite.
+
+Standalone (Node 20+):
+
+```bash
+npm install
+npm run dev
+```
+
+The quality service needs to be running at `http://localhost:8001`.
+
+## Build
+
+```bash
+npm run build    # production bundle → dist/
+npm run preview  # serve the bundle locally
+```
+
+## Tech
+
+React 19, Vite 8, Axios, Recharts, Bootstrap 5 + custom dark-theme CSS.
+
+## Layout
+
+```
+dashboard/
+├── src/
+│   ├── App.jsx       # Upload, results, charts, recent assessments table
+│   ├── main.jsx      # Entry point
+│   ├── style.css     # Dark theme
+│   ├── App.css
+│   └── index.css
+├── public/
+├── vite.config.js
+├── eslint.config.js
+└── package.json
+```
