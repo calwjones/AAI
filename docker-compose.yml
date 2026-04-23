@@ -13,6 +13,9 @@ services:
       - DESD_API_URL=${DESD_API_URL:-http://host.docker.internal:8089/api}
       - DESD_SERVICE_USERNAME=${DESD_SERVICE_USERNAME:-admin}
       - DESD_SERVICE_PASSWORD=${DESD_SERVICE_PASSWORD:-demo1234}
+    networks:
+      - default
+      - brfn-shared
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -39,3 +42,7 @@ services:
       - ./dashboard/src:/app/src  # Hot reload for development
     environment:
       - VITE_API_URL=http://localhost:8001
+
+networks:
+  brfn-shared:
+    external: true
