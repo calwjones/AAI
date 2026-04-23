@@ -135,6 +135,7 @@ class QualityGrader:
             "size_score": size,
             "ripeness_score": ripeness,
             "model_version": self.model_manager.active_version,
+            "recommended_action": "Recommend discount" if grade == "C" else None
         }
 
     def _dummy_result(self) -> dict:

@@ -101,6 +101,7 @@ class Explainer:
             "size_score": grading_result["size_score"],
             "ripeness_score": grading_result["ripeness_score"],
             "model_version": grading_result["model_version"],
+            "recommended_action": "Recommend discount" if grading_result["grade"] == "C" else None,
         }
 
     def _describe_focus(self, heatmap, confidence, predicted_class):

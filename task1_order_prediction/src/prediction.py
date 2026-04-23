@@ -83,6 +83,7 @@ def build_features(df: pd.DataFrame, reference_date) -> pd.DataFrame:
     return features
 
 
+
 class OrderPredictor:
     def __init__(self):
         self.model = None
@@ -135,3 +136,74 @@ class OrderPredictor:
         if self.features is None:
             return []
         return sorted(self.features["customer_id"].unique().tolist())
+    
+    def forecast(self, days: int = 7) -> list[dict]:
+        df = pd.read_csv(CSV_PATH)
+        df["order_date"] = pd.to_datetime(df["order_date"], format="%d/%m/%Y")
+
+        max_date = df["order_date"].max()
+
+        # Last 4 weeks of data for recent trend
+        recent = df[df["order_date"] >= max_date - pd.Timedelta(weeks=4)]
+        # Previous 4 weeks for comparison
+        previous = df[
+            (df["order_date"] >= max_date - pd.Timedelta(weeks=8))
+            & (df["order_date"] < max_date - pd.Timedelta(weeks=4))
+        ]
+
+        recent_demand = (
+            recent.groupby("product_id")["quantity"]
+            .sum()
+            .reset_index(name="recent_qty")
+        )
+        previous_demand = (
+            previous.groupby("product_id")["quantity"]
+            .sum()
+            .reset_index(name="previous_qty")
+        )
+
+        merged = recent_demand.merge(previous_demand, on="product_id", how="left")
+        merged["previous_qty"] = merged["previous_qty"].fillna(0)
+
+        # Calculate trend
+        merged["trend"] = np.where(
+            merged["previous_qty"] > 0,
+            ((merged["recent_qty"] - merged["previous_qty"]) / merged["previous_qty"] * 100).round(1),
+            100.0,
+        )
+
+        # Classify demand level
+        median_qty = merged["recent_qty"].median()
+        merged["level"] = np.where(
+            merged["recent_qty"] >= median_qty * 1.3, "high",
+            np.where(merged["recent_qty"] <= median_qty * 0.7, "low", "medium")
+        )
+
+        # Forecast next period quantity (simple: recent weekly avg * days/7)
+        weeks_in_recent = 4
+        merged["forecast_qty"] = (
+            (merged["recent_qty"] / weeks_in_recent) * (days / 7)
+        ).round(0).astype(int)
+
+        # Build response
+        forecasts = []
+        for row in merged.sort_values("recent_qty", ascending=False).itertuples():
+            product_name = self.product_names.get(int(row.product_id), f"Product {row.product_id}")
+            
+            if row.level == "high":
+                description = f"High demand expected — consider increasing stock"
+            elif row.level == "low":
+                description = f"Low demand expected — reduce stock to avoid waste"
+            else:
+                description = f"Steady demand expected"
+
+            forecasts.append({
+                "product_id": int(row.product_id),
+                "product_name": product_name,
+                "level": row.level,
+                "forecast_quantity": int(row.forecast_qty),
+                "trend_percent": float(row.trend),
+                "description": description,
+            })
+
+        return forecasts

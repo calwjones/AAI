@@ -59,6 +59,11 @@ def customers():
 def metadata():
     return predictor.metadata
 
+@app.get("/forecast")
+def forecast(days: int = 7):
+    if not predictor.is_loaded():
+        raise HTTPException(status_code=503, detail="Model not loaded.")
+    return predictor.forecast(days=days)
 
 if __name__ == "__main__":
     uvicorn.run("service:app", host="0.0.0.0", port=8002, reload=True)

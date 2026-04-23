@@ -32,6 +32,9 @@ services:
       - DESD_SERVICE_PASSWORD=${DESD_SERVICE_PASSWORD:-demo1234}
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    networks:
+      - default
+      - brfn-shared
 
   xai-dashboard:
     build: ./dashboard
