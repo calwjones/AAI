@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react';
 import axios from 'axios'
 import './style.css'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -81,10 +81,12 @@ const mockPredictions = [
  
 function App() {
   const [selectedImage, setSelectedImage] = useState(null)
+  const [accuracyData, setAccuracyData] = useState([]);
   const [imagePreview, setImagePreview] = useState(null)
   const [explanation, setExplanation] = useState(null)
   const [loading, setLoading] = useState(false)
-  
+
+
   const handleImageUpload = (event) => {
     const file = event.target.files[0]
     if (file) {
@@ -93,7 +95,77 @@ function App() {
       setExplanation(null)
     }
   }
+
+  const [predictions, setPredictions] = useState([]);
+  const [predictionsLoading, setPredictionsLoading] = useState(true);
+
+  const API_URL = import.meta.env.VITE_AI_SERVICE_URL || 'http://localhost:8001';
+
+  useEffect(() => {
+    const fetchInteractions = async () => {
+      try {
+        const res = await fetch(`${API_URL}/interactions?service_type=quality`);
+        const data = await res.json();
+        
+        const mapped = data.map(item => ({
+          id: item.id,
+          timestamp: new Date(item.timestamp).toLocaleTimeString('en-GB', { 
+            hour: '2-digit', minute: '2-digit' 
+          }),
+          product: item.input_data?.filename?.replace('products/', '').replace(/\.\w+$/, '') || 'Unknown',
+          producer: item.input_data?.user_id ? `User ${item.input_data.user_id}` : 'Unknown',
+          grade: item.prediction?.grade || '—',
+          color_score: item.prediction?.color_score || 0,
+          size_score: item.prediction?.size_score || 0,
+          ripeness_score: item.prediction?.ripeness_score || 0,
+          confidence: item.prediction?.confidence || 0,
+        }));
+        
+        setPredictions(mapped);
+      // Build confidence trend from live data
+      const byDay = {};
+      data.forEach(item => {
+        const date = new Date(item.timestamp).toLocaleDateString('en-GB', { 
+          month: 'short', day: 'numeric' 
+        });
+        if (!byDay[date]) byDay[date] = { total: 0, count: 0 };
+        byDay[date].total += (item.prediction?.confidence || 0);
+        byDay[date].count += 1;
+      });
+
+      const trend = Object.entries(byDay).map(([date, val]) => ({
+        date,
+        accuracy: parseFloat(((val.total / val.count) * 100).toFixed(1)),
+      }));
+
+      setAccuracyData(trend.reverse());
+      } catch (err) {
+        console.error('Failed to fetch interactions:', err);
+      } finally {
+        setPredictionsLoading(false);
+      }
+    };
+
+    fetchInteractions();
+    const interval = setInterval(fetchInteractions, 30000); // refresh every 30s
+    return () => clearInterval(interval);
+  }, []);
  
+  const confidenceByDay = predictions.reduce((acc, pred) => {
+    const date = new Date(pred.timestamp).toLocaleDateString('en-GB', { 
+      month: 'short', day: 'numeric' 
+    });
+    if (!acc[date]) acc[date] = { total: 0, count: 0 };
+    acc[date].total += pred.confidence;
+    acc[date].count += 1;
+    return acc;
+  }, {});
+
+  // const accuracyData = Object.entries(confidenceByDay).map(([date, val]) => ({
+  //   date,
+  //   accuracy: ((val.total / val.count) * 100).toFixed(1),
+  // }));
+
   const handleExplain = async () => {
     if (!selectedImage) return
     
@@ -113,6 +185,14 @@ function App() {
       setLoading(false)
     }
   }
+  const overallAvg = accuracyData.length > 0 
+    ? (accuracyData.reduce((sum, d) => sum + d.accuracy, 0) / accuracyData.length).toFixed(1)
+    : 0;
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const perPage = 10;
+  const totalPages = Math.ceil(predictions.length / perPage);
+  const paginatedPredictions = predictions.slice((currentPage - 1) * perPage, currentPage * perPage);
  
   return (
     <>
@@ -142,14 +222,14 @@ function App() {
             marginBottom: '0.5rem', 
             color: 'var(--text)' 
           }}>
-            Model Accuracy Over Time
+            Average Model Confidence Over Time
           </h2>
           <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1.5rem' }}>
-            7-day rolling accuracy on validation dataset
+            7-day rolling confidence
           </p>
           
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={mockAccuracyData}>
+            <LineChart data={accuracyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#ddd" />
               <XAxis 
                 dataKey="date" 
@@ -181,17 +261,23 @@ function App() {
           </ResponsiveContainer>
           
           {/* Alert threshold indicator */}
-          <div style={{ 
-            marginTop: '1rem', 
-            padding: '0.75rem 1rem',
-            backgroundColor: '#e8f5eb',
-            border: '1px solid #b0d8b8',
-            borderRadius: 'var(--radius)',
-            fontSize: '0.85rem',
-            color: '#1a5c2a'
-          }}>
-            <strong>Status:</strong> Model performance is healthy. Current accuracy: 90% (above 85% threshold)
-          </div>
+          {accuracyData.length > 0 && (
+            <div style={{ 
+              marginTop: '1rem', 
+              padding: '0.75rem 1rem',
+              backgroundColor: accuracyData[accuracyData.length - 1]?.accuracy >= 85 ? '#e8f5eb' : '#fde8e8',
+              border: `1px solid ${accuracyData[accuracyData.length - 1]?.accuracy >= 85 ? '#b0d8b8' : '#d8b0b0'}`,
+              borderRadius: 'var(--radius)',
+              fontSize: '0.85rem',
+              color: accuracyData[accuracyData.length - 1]?.accuracy >= 85 ? '#1a5c2a' : '#8b1a1a'
+            }}>
+              <strong>Status:</strong> {
+                overallAvg >= 85 
+                  ? `Model confidence is healthy. Average: ${overallAvg}% (above 85% threshold)`
+                  : `Model confidence below threshold. Average: ${overallAvg}% (below 85% threshold)`
+              }
+            </div>
+          )}
         </div>
         
         {/* Recent Predictions Table */}
@@ -217,9 +303,13 @@ function App() {
               </tr>
             </thead>
             <tbody>
-              {mockPredictions.map(pred => (
+              {paginatedPredictions.length === 0 && !predictionsLoading ? (
+                <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--muted)' }}>
+                  No assessments yet
+                </td></tr>
+              ) : paginatedPredictions.map(pred => (
                 <tr key={pred.id}>
-                  <td>{pred.timestamp.split(' ')[1]}</td>
+                  <td>{pred.timestamp}</td>
                   <td>{pred.product}</td>
                   <td style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
                     {pred.producer}
@@ -242,6 +332,28 @@ function App() {
               ))}
             </tbody>
           </table>
+
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', marginTop: '1rem' }}>
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', cursor: currentPage === 1 ? 'default' : 'pointer', opacity: currentPage === 1 ? 0.4 : 1 }}
+              >
+                Previous
+              </button>
+              <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                Page {currentPage} of {totalPages}
+              </span>
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', cursor: currentPage === totalPages ? 'default' : 'pointer', opacity: currentPage === totalPages ? 0.4 : 1 }}
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
  
         {/* Upload Card */}
