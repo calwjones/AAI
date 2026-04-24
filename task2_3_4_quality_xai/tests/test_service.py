@@ -120,3 +120,52 @@ def test_get_interactions_calls_desd():
             end_date=None,
             overrides_only=False,
         )
+
+
+def test_override_records_new_log_entry():
+    with patch("service.logger.log_override", return_value=42) as mock_override:
+        response = client.post(
+            "/override",
+            json={
+                "original_log_id": 17,
+                "corrected_grade": "B",
+                "product_id": 1,
+                "user_id": 99,
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "recorded"
+    assert body["override_log_id"] == 42
+    mock_override.assert_called_once_with(
+        original_log_id=17,
+        corrected_grade="B",
+        user_id=99,
+        product_id=1,
+    )
+
+
+def test_override_rejects_invalid_grade():
+    response = client.post(
+        "/override",
+        json={
+            "original_log_id": 17,
+            "corrected_grade": "Z",
+            "product_id": 1,
+            "user_id": 99,
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_model_manager_snapshot_returns_tuple_or_none():
+    from model_upload import ModelManager
+    manager = ModelManager()
+    assert manager.snapshot() is None
+
+    _upload_dummy_pkl(version="snapshot-test")
+    from service import model_manager as live_manager
+    snap = live_manager.snapshot()
+    assert snap is not None
+    assert len(snap) == 3

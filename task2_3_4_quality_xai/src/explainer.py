@@ -16,11 +16,13 @@ class Explainer:
         self.grader = grader
 
     def generate_gradcam(self, image_bytes, last_conv_layer_name="out_relu"):
-        ext = self.model_manager.active_extension
+        snapshot = self.model_manager.snapshot()
+        if snapshot is None:
+            raise ValueError("No model loaded")
+        model, _, ext = snapshot
         if ext not in (".keras", ".h5"):
             raise ValueError("Grad-CAM requires a Keras image model (.keras or .h5)")
 
-        model = self.model_manager.active_model
         grading_result = self.grader.grade(image_bytes)
 
         img = Image.open(io.BytesIO(image_bytes)).convert("RGB")

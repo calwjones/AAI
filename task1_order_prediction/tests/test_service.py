@@ -1,5 +1,8 @@
 import sys
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
@@ -8,6 +11,12 @@ from service import app, predictor
 
 predictor.load()
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _mock_desd_logger():
+    with patch("service.logger.log", return_value=True):
+        yield
 
 
 def test_health():
@@ -62,3 +71,32 @@ def test_metadata_endpoint():
     body = response.json()
     assert body["model_type"] == "RandomForestClassifier"
     assert "feature_order" in body
+
+
+def test_explain_returns_shap_contributors():
+    customer_id = predictor.known_customers()[0]
+    recs_response = client.post("/predict", json={"customer_id": customer_id, "top_n": 1})
+    product_id = recs_response.json()["recommendations"][0]["product_id"]
+
+    response = client.post(
+        "/explain",
+        json={"customer_id": customer_id, "product_id": product_id},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["customer_id"] == customer_id
+    assert body["product_id"] == product_id
+    assert 0.0 <= body["reorder_probability"] <= 1.0
+    assert "base_value" in body
+    assert set(body["feature_values"].keys()) == set(body["shap_values"].keys())
+    assert len(body["feature_values"]) == 7
+    assert isinstance(body["top_positive"], list)
+    assert isinstance(body["top_negative"], list)
+
+
+def test_explain_unknown_pair_returns_404():
+    response = client.post(
+        "/explain",
+        json={"customer_id": 999999, "product_id": 999999},
+    )
+    assert response.status_code == 404

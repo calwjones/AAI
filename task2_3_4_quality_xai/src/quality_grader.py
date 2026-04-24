@@ -92,11 +92,11 @@ class QualityGrader:
         self.model_manager = model_manager
 
     def grade(self, image_bytes: bytes) -> dict:
-        if not self.model_manager.is_loaded():
+        snapshot = self.model_manager.snapshot()
+        if snapshot is None:
             return self._dummy_result()
 
-        model = self.model_manager.active_model
-        ext = self.model_manager.active_extension
+        model, version, ext = snapshot
 
         try:
             img_array = _preprocess_image(image_bytes)
@@ -134,7 +134,7 @@ class QualityGrader:
             "color_score": color,
             "size_score": size,
             "ripeness_score": ripeness,
-            "model_version": self.model_manager.active_version,
+            "model_version": version,
             "recommended_action": "Recommend discount" if grade == "C" else None
         }
 

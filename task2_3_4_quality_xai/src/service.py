@@ -1,12 +1,21 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
 import uvicorn
 
 from model_upload import ModelManager
 from interaction_logger import InteractionLogger
 from quality_grader import QualityGrader
 from explainer import Explainer
+
+
+class OverrideRequest(BaseModel):
+    original_log_id: Optional[int] = None
+    corrected_grade: str
+    product_id: int
+    user_id: Optional[int] = None
 
 model_manager = ModelManager()
 logger = InteractionLogger()
@@ -46,15 +55,16 @@ async def grade_product(
     image_bytes = await image.read()
     result = grader.grade(image_bytes)
 
-    logger.log(
+    log_id = logger.log(
         service_type="quality",
         user_id=user_id,
         input_data={"product_id": product_id, "filename": image.filename},
         prediction=result,
         model_version=model_manager.active_version,
+        confidence_score=result.get("confidence"),
     )
 
-    return result
+    return {**result, "log_id": log_id}
 
 
 @app.post("/upload-model")
@@ -119,15 +129,30 @@ async def explain_prediction(
     image_bytes = await image.read()
     explanation = explainer.generate_gradcam(image_bytes)
 
-    logger.log(
+    log_id = logger.log(
         service_type="quality",
         user_id=user_id,
         input_data={"product_id": product_id, "filename": image.filename},
         prediction=explanation,
         model_version=model_manager.active_version,
+        confidence_score=explanation.get("confidence"),
     )
 
-    return explanation
+    return {**explanation, "log_id": log_id}
+
+
+@app.post("/override")
+def record_override(request: OverrideRequest):
+    if request.corrected_grade not in {"A", "B", "C"}:
+        raise HTTPException(status_code=400, detail="corrected_grade must be A, B, or C.")
+
+    override_log_id = logger.log_override(
+        original_log_id=request.original_log_id,
+        corrected_grade=request.corrected_grade,
+        user_id=request.user_id,
+        product_id=request.product_id,
+    )
+    return {"status": "recorded", "override_log_id": override_log_id}
 
 if __name__ == "__main__":
     uvicorn.run("service:app", host="0.0.0.0", port=8001, reload=True)
