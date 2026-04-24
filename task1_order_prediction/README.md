@@ -60,6 +60,10 @@ Response:
 
 Interactive docs at http://localhost:8002/docs.
 
+## Audit logging
+
+Every successful `/predict` call is logged to DESD via the same `InteractionLogger` the quality service uses. Payload sent to `/api/ai-logs/` includes `service_type: "order_prediction"`, the `customer_id` and `top_n` from the request, the ranked recommendations, the top recommendation's probability as `confidence_score`, and the model version. DESD credentials come from the `DESD_SERVICE_USERNAME` / `DESD_SERVICE_PASSWORD` environment variables.
+
 ## Running
 
 Via docker-compose (from repo root):

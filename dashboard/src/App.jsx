@@ -1,7 +1,49 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import axios from 'axios'
 import './style.css'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001'
+const ORDER_API_URL = import.meta.env.VITE_ORDER_API_URL || 'http://localhost:8002'
+
+function ContributionRow({ feature, value, shap, maxAbsShap }) {
+  const sign = shap >= 0 ? 'positive' : 'negative'
+  const width = maxAbsShap > 0 ? (Math.abs(shap) / maxAbsShap) * 100 : 0
+  return (
+    <div className="contribution-row">
+      <div className="contribution-label">
+        {feature}
+        <span style={{ color: 'var(--muted)', fontSize: '0.75rem', marginLeft: '0.4rem' }}>
+          ({value})
+        </span>
+      </div>
+      <div className="contribution-bar-track">
+        <div
+          className={`contribution-bar-fill ${sign}`}
+          style={{ width: `${width}%` }}
+        />
+      </div>
+      <div className="contribution-value">
+        {shap >= 0 ? '+' : ''}{shap.toFixed(3)}
+      </div>
+    </div>
+  )
+}
+
+function ScoreBar({ label, value, compact = false }) {
+  const safeValue = Math.max(0, Math.min(100, value ?? 0))
+  return (
+    <div className={compact ? 'score-bar-compact' : 'score-bar'}>
+      <div className="score-bar-header">
+        <span>{label}</span>
+        <span>{safeValue.toFixed(0)}%</span>
+      </div>
+      <div className="score-bar-track">
+        <div className="score-bar-fill" style={{ width: `${safeValue}%` }} />
+      </div>
+    </div>
+  )
+}
  
  
 // Mock accuracy data over time
@@ -79,18 +121,118 @@ const mockPredictions = [
   }
 ]
  
+function formatTimestamp(ts) {
+  if (!ts) return '—'
+  if (ts.includes('T')) {
+    const d = new Date(ts)
+    if (!isNaN(d)) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }
+  }
+  const parts = ts.split(' ')
+  return parts.length > 1 ? parts[1] : ts
+}
+
+function mapDesdLog(entry) {
+  const p = entry.prediction || {}
+  return {
+    id: entry.id ?? `${entry.created_at}-${entry.user}`,
+    timestamp: entry.created_at || entry.timestamp || '',
+    product: entry.input_data?.product_id != null
+      ? `Product #${entry.input_data.product_id}`
+      : 'Unknown',
+    grade: p.grade || '—',
+    color_score: p.color_score ?? 0,
+    size_score: p.size_score ?? 0,
+    ripeness_score: p.ripeness_score ?? 0,
+    confidence: entry.confidence_score ?? p.confidence ?? 0,
+    model_version: entry.model_version || p.model_version || '—',
+  }
+}
+
 function App() {
   const [selectedImage, setSelectedImage] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [explanation, setExplanation] = useState(null)
   const [loading, setLoading] = useState(false)
-  
+  const [recentPredictions, setRecentPredictions] = useState(mockPredictions)
+  const [usingMockData, setUsingMockData] = useState(true)
+  const [overrideState, setOverrideState] = useState('idle')
+  const [correctedGrade, setCorrectedGrade] = useState('')
+  const [overrideSubmitting, setOverrideSubmitting] = useState(false)
+  const [shapCustomerId, setShapCustomerId] = useState('')
+  const [shapProductId, setShapProductId] = useState('')
+  const [shapResult, setShapResult] = useState(null)
+  const [shapLoading, setShapLoading] = useState(false)
+  const [shapError, setShapError] = useState(null)
+
+  useEffect(() => {
+    let cancelled = false
+    axios.get(`${API_URL}/interactions`, { params: { service_type: 'quality' } })
+      .then(response => {
+        if (cancelled) return
+        const rows = Array.isArray(response.data) ? response.data : []
+        const mapped = rows
+          .filter(r => !r.user_override)
+          .map(mapDesdLog)
+          .slice(0, 10)
+        if (mapped.length > 0) {
+          setRecentPredictions(mapped)
+          setUsingMockData(false)
+        }
+      })
+      .catch(err => {
+        console.warn('Could not fetch recent predictions, using mock:', err.message)
+      })
+    return () => { cancelled = true }
+  }, [])
+
   const handleImageUpload = (event) => {
     const file = event.target.files[0]
     if (file) {
       setSelectedImage(file)
       setImagePreview(URL.createObjectURL(file))
       setExplanation(null)
+      setOverrideState('idle')
+      setCorrectedGrade('')
+    }
+  }
+
+  const handleShapExplain = async () => {
+    if (!shapCustomerId || !shapProductId) return
+    setShapLoading(true)
+    setShapError(null)
+    setShapResult(null)
+    try {
+      const response = await axios.post(`${ORDER_API_URL}/explain`, {
+        customer_id: parseInt(shapCustomerId, 10),
+        product_id: parseInt(shapProductId, 10),
+      })
+      setShapResult(response.data)
+    } catch (err) {
+      const detail = err.response?.data?.detail || err.message
+      setShapError(detail)
+    } finally {
+      setShapLoading(false)
+    }
+  }
+
+  const handleOverride = async () => {
+    if (!correctedGrade || !explanation) return
+    setOverrideSubmitting(true)
+    try {
+      await axios.post(`${API_URL}/override`, {
+        original_log_id: explanation.log_id ?? null,
+        corrected_grade: correctedGrade,
+        product_id: 123,
+        user_id: null,
+      })
+      setOverrideState('done')
+    } catch (err) {
+      console.error('Override submission failed:', err)
+      alert('Could not record correction. Is the API running?')
+    } finally {
+      setOverrideSubmitting(false)
     }
   }
  
@@ -104,7 +246,7 @@ function App() {
       formData.append('image', selectedImage)
       formData.append('product_id', 123)
       
-      const response = await axios.post('http://localhost:8001/explain', formData)
+      const response = await axios.post(`${API_URL}/explain`, formData)
       setExplanation(response.data)
     } catch (error) {
       console.error('Error getting explanation:', error)
@@ -205,37 +347,39 @@ function App() {
             Recent Quality Assessments
           </h2>
           
+          {usingMockData && (
+            <p style={{ fontSize: '0.8rem', color: 'var(--muted)', marginBottom: '0.75rem' }}>
+              Showing sample data — live DESD log feed unavailable.
+            </p>
+          )}
+
           <table className="product-table">
             <thead>
               <tr>
                 <th>Time</th>
                 <th>Product</th>
-                <th>Producer</th>
                 <th>Grade</th>
                 <th>Scores</th>
                 <th>Confidence</th>
               </tr>
             </thead>
             <tbody>
-              {mockPredictions.map(pred => (
+              {recentPredictions.map(pred => (
                 <tr key={pred.id}>
-                  <td>{pred.timestamp.split(' ')[1]}</td>
+                  <td>{formatTimestamp(pred.timestamp)}</td>
                   <td>{pred.product}</td>
-                  <td style={{ color: 'var(--muted)', fontSize: '0.85rem' }}>
-                    {pred.producer}
-                  </td>
                   <td>
-                    <strong style={{ 
-                      color: pred.grade === 'A' ? 'var(--accent)' : 
-                            pred.grade === 'C' ? '#c0392b' : 'var(--text)' 
+                    <strong style={{
+                      color: pred.grade === 'A' ? 'var(--accent)' :
+                            pred.grade === 'C' ? '#c0392b' : 'var(--text)'
                     }}>
                       Grade {pred.grade}
                     </strong>
                   </td>
-                  <td style={{ fontSize: '0.8rem', color: 'var(--muted)' }}>
-                    C:{pred.color_score.toFixed(0)}% 
-                    S:{pred.size_score.toFixed(0)}% 
-                    R:{pred.ripeness_score.toFixed(0)}%
+                  <td style={{ minWidth: '160px' }}>
+                    <ScoreBar label="C" value={pred.color_score} compact />
+                    <ScoreBar label="S" value={pred.size_score} compact />
+                    <ScoreBar label="R" value={pred.ripeness_score} compact />
                   </td>
                   <td>{(pred.confidence * 100).toFixed(0)}%</td>
                 </tr>
@@ -244,11 +388,104 @@ function App() {
           </table>
         </div>
  
+        {/* Order Prediction SHAP Card */}
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem', color: 'var(--text)' }}>
+            Explain an Order Recommendation
+          </h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--muted)', marginBottom: '1rem' }}>
+            Enter a customer and product to see which features pushed the reorder probability up or down (SHAP).
+          </p>
+
+          <div className="shap-form">
+            <div>
+              <label>Customer ID</label>
+              <input
+                type="number"
+                value={shapCustomerId}
+                onChange={e => setShapCustomerId(e.target.value)}
+                placeholder="e.g. 1"
+              />
+            </div>
+            <div>
+              <label>Product ID</label>
+              <input
+                type="number"
+                value={shapProductId}
+                onChange={e => setShapProductId(e.target.value)}
+                placeholder="e.g. 42"
+              />
+            </div>
+            <button
+              className="btn"
+              onClick={handleShapExplain}
+              disabled={!shapCustomerId || !shapProductId || shapLoading}
+            >
+              {shapLoading ? 'Explaining...' : 'Explain'}
+            </button>
+          </div>
+
+          {shapError && (
+            <p style={{ color: '#c0392b', fontSize: '0.85rem' }}>{shapError}</p>
+          )}
+
+          {shapResult && (
+            <div>
+              <p style={{ marginBottom: '1rem' }}>
+                <strong>Reorder probability:</strong> {(shapResult.reorder_probability * 100).toFixed(1)}%
+                <span style={{ color: 'var(--muted)', marginLeft: '1rem', fontSize: '0.85rem' }}>
+                  (base {(shapResult.base_value * 100).toFixed(1)}%)
+                </span>
+              </p>
+
+              {shapResult.top_positive.length > 0 && (
+                <>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '0.5rem' }}>
+                    Features pushing probability up
+                  </h3>
+                  {shapResult.top_positive.map(c => (
+                    <ContributionRow
+                      key={`pos-${c.feature}`}
+                      feature={c.feature}
+                      value={c.value}
+                      shap={c.shap}
+                      maxAbsShap={Math.max(
+                        ...shapResult.top_positive.map(x => Math.abs(x.shap)),
+                        ...shapResult.top_negative.map(x => Math.abs(x.shap)),
+                      )}
+                    />
+                  ))}
+                </>
+              )}
+
+              {shapResult.top_negative.length > 0 && (
+                <>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: '600', margin: '1rem 0 0.5rem 0' }}>
+                    Features pushing probability down
+                  </h3>
+                  {shapResult.top_negative.map(c => (
+                    <ContributionRow
+                      key={`neg-${c.feature}`}
+                      feature={c.feature}
+                      value={c.value}
+                      shap={c.shap}
+                      maxAbsShap={Math.max(
+                        ...shapResult.top_positive.map(x => Math.abs(x.shap)),
+                        ...shapResult.top_negative.map(x => Math.abs(x.shap)),
+                      )}
+                    />
+                  ))}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Upload Card */}
         <div className="card" style={{ marginBottom: '1.5rem' }}>
-          <h2 style={{ 
-            fontSize: '1.1rem', 
-            fontWeight: '600', 
+          <h2 style={{
+            fontSize: '1.1rem',
+            fontWeight: '600',
             marginBottom: '1rem',
             color: 'var(--text)',
             textAlign: 'center'
@@ -377,11 +614,52 @@ function App() {
                   }}>
                     Grade {explanation.grade}
                   </p>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--muted)', lineHeight: '1.6' }}>
-                    <div>Color: {explanation.color_score?.toFixed(1)}%</div>
-                    <div>Size: {explanation.size_score?.toFixed(1)}%</div>
-                    <div>Ripeness: {explanation.ripeness_score?.toFixed(1)}%</div>
+                  <div style={{ marginTop: '0.5rem' }}>
+                    <ScoreBar label="Color" value={explanation.color_score} />
+                    <ScoreBar label="Size" value={explanation.size_score} />
+                    <ScoreBar label="Ripeness" value={explanation.ripeness_score} />
                   </div>
+
+                  {overrideState === 'idle' && (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => setOverrideState('editing')}
+                      style={{ marginTop: '1rem' }}
+                    >
+                      Disagree with this grade?
+                    </button>
+                  )}
+                  {overrideState === 'editing' && (
+                    <div className="override-panel">
+                      <select
+                        value={correctedGrade}
+                        onChange={e => setCorrectedGrade(e.target.value)}
+                      >
+                        <option value="">Corrected grade...</option>
+                        <option value="A">Grade A</option>
+                        <option value="B">Grade B</option>
+                        <option value="C">Grade C</option>
+                      </select>
+                      <button
+                        className="btn btn-sm"
+                        onClick={handleOverride}
+                        disabled={!correctedGrade || overrideSubmitting}
+                      >
+                        {overrideSubmitting ? 'Submitting...' : 'Submit'}
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => { setOverrideState('idle'); setCorrectedGrade('') }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                  {overrideState === 'done' && (
+                    <p className="override-confirm" style={{ marginTop: '1rem' }}>
+                      Correction recorded.
+                    </p>
+                  )}
                 </div>
               )}
               

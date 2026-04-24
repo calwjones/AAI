@@ -71,18 +71,6 @@ class InteractionLogger:
             print(f"Could not log to DESD: {e}")
             return None
 
-    def log_override(self, original_log_id, corrected_grade, user_id, product_id):
-        """Record a user disagreement with a previous grade by posting a new override log entry."""
-        return self.log(
-            service_type="quality_override",
-            user_id=user_id,
-            input_data={"product_id": product_id, "overridden_log_id": original_log_id},
-            prediction={"overridden_log_id": original_log_id, "corrected_grade": corrected_grade},
-            model_version=None,
-            confidence_score=None,
-            user_override=True,
-        )
-
     def fetch_logs(self, service_type=None, start_date=None, end_date=None, overrides_only=False) -> list:
         params = {}
         if service_type:

@@ -407,3 +407,118 @@ ul.errorlist,
 .detail-item p {
   font-size: 0.9rem;
 }
+
+.score-bar {
+  margin-bottom: 0.6rem;
+}
+
+.score-bar-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.score-bar-track {
+  height: 8px;
+  background: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.score-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.score-bar-compact {
+  margin-bottom: 0.3rem;
+}
+
+.score-bar-compact .score-bar-header {
+  font-size: 0.7rem;
+  margin-bottom: 0.1rem;
+}
+
+.score-bar-compact .score-bar-track {
+  height: 5px;
+}
+
+.override-panel {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.override-panel select {
+  width: auto;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.override-confirm {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.contribution-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.contribution-label {
+  flex: 0 0 180px;
+  color: var(--text);
+}
+
+.contribution-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: relative;
+}
+
+.contribution-bar-fill {
+  height: 100%;
+  border-radius: var(--radius);
+}
+
+.contribution-bar-fill.positive {
+  background: var(--accent);
+}
+
+.contribution-bar-fill.negative {
+  background: #c0392b;
+}
+
+.contribution-value {
+  flex: 0 0 80px;
+  font-family: monospace;
+  color: var(--muted);
+  text-align: right;
+}
+
+.shap-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.shap-form input {
+  width: 120px;
+}
+

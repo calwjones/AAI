@@ -1,5 +1,6 @@
 import json
 import pickle
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,6 +15,7 @@ class ModelManager:
         self.active_model = None
         self.active_version = None
         self.active_extension = None
+        self._lock = threading.RLock()
 
     def load_latest(self):
         versions = self._read_metadata()
@@ -32,19 +34,35 @@ class ModelManager:
         try:
             if extension == ".pkl":
                 with open(path, "rb") as f:
-                    self.active_model = pickle.load(f)
+                    loaded_model = pickle.load(f)
 
             elif extension in (".keras", ".h5"):
                 from tensorflow import keras
-                self.active_model = keras.models.load_model(str(path))
+                loaded_model = keras.models.load_model(str(path))
 
-            self.active_version = version
-            self.active_extension = extension
+            else:
+                print(f"Unsupported extension: {extension}")
+                return
+
+            with self._lock:
+                self.active_model = loaded_model
+                self.active_version = version
+                self.active_extension = extension
             print(f"Model loaded: {version} ({extension})")
 
         except Exception as e:
             print(f"Failed to load model: {e}")
-            self.active_model = None
+            with self._lock:
+                self.active_model = None
+                self.active_version = None
+                self.active_extension = None
+
+    def snapshot(self):
+        """Return (model, version, extension) atomically, or None if no model loaded."""
+        with self._lock:
+            if self.active_model is None:
+                return None
+            return (self.active_model, self.active_version, self.active_extension)
 
     def save_and_load(self, model_bytes: bytes, filename: str, version: str, metrics: dict, notes: str) -> dict:
         ext = "." + filename.rsplit(".", 1)[-1]
@@ -70,7 +88,8 @@ class ModelManager:
         return metadata
 
     def is_loaded(self) -> bool:
-        return self.active_model is not None
+        with self._lock:
+            return self.active_model is not None
 
     def list_versions(self) -> list:
         return self._read_metadata()
