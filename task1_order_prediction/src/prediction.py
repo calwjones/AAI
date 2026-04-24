@@ -171,7 +171,7 @@ class OrderPredictor:
             ((merged["recent_qty"] - merged["previous_qty"]) / merged["previous_qty"] * 100).round(1),
             100.0,
         )
-
+        merged["trend"] = np.clip(merged["trend"], -100, 200)
         # Classify demand level
         median_qty = merged["recent_qty"].median()
         merged["level"] = np.where(
