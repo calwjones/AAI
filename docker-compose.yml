@@ -35,9 +35,6 @@ services:
       - brfn-shared
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    networks:
-      - default
-      - brfn-shared
 
   xai-dashboard:
     build: ./dashboard

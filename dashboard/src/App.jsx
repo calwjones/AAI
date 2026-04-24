@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { useState, useEffect } from 'react';
-=======
 import { useState, useEffect } from 'react'
->>>>>>> origin/main
 import axios from 'axios'
 import './style.css'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -160,9 +156,6 @@ function App() {
   const [imagePreview, setImagePreview] = useState(null)
   const [explanation, setExplanation] = useState(null)
   const [loading, setLoading] = useState(false)
-<<<<<<< HEAD
-
-=======
   const [recentPredictions, setRecentPredictions] = useState(mockPredictions)
   const [usingMockData, setUsingMockData] = useState(true)
   const [overrideState, setOverrideState] = useState('idle')
@@ -194,7 +187,6 @@ function App() {
       })
     return () => { cancelled = true }
   }, [])
->>>>>>> origin/main
 
   const handleImageUpload = (event) => {
     const file = event.target.files[0]
@@ -457,19 +449,13 @@ function App() {
               </tr>
             </thead>
             <tbody>
-<<<<<<< HEAD
               {paginatedPredictions.length === 0 && !predictionsLoading ? (
                 <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--muted)' }}>
                   No assessments yet
                 </td></tr>
               ) : paginatedPredictions.map(pred => (
                 <tr key={pred.id}>
-                  <td>{pred.timestamp}</td>
-=======
-              {recentPredictions.map(pred => (
-                <tr key={pred.id}>
                   <td>{formatTimestamp(pred.timestamp)}</td>
->>>>>>> origin/main
                   <td>{pred.product}</td>
                   <td>
                     <strong style={{
