@@ -5,6 +5,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8001'
 const ORDER_API_URL = import.meta.env.VITE_ORDER_API_URL || 'http://localhost:8002'
+const DESD_URL = import.meta.env.VITE_DESD_URL || 'http://localhost:8089';
 
 function ContributionRow({ feature, value, shap, maxAbsShap }) {
   const sign = shap >= 0 ? 'positive' : 'negative'
@@ -166,21 +167,27 @@ function App() {
   const [shapResult, setShapResult] = useState(null)
   const [shapLoading, setShapLoading] = useState(false)
   const [shapError, setShapError] = useState(null)
+  const [challenges, setChallenges] = useState([]);
 
-  useEffect(() => {
+useEffect(() => {
     let cancelled = false
     axios.get(`${API_URL}/interactions`, { params: { service_type: 'quality' } })
       .then(response => {
         if (cancelled) return
         const rows = Array.isArray(response.data) ? response.data : []
+        
+        // Regular predictions (non-overrides)
         const mapped = rows
           .filter(r => !r.user_override)
           .map(mapDesdLog)
-          .slice(0, 10)
         if (mapped.length > 0) {
-          setRecentPredictions(mapped)
+          setPredictions(mapped)
           setUsingMockData(false)
         }
+
+        // Challenged grades (overrides only)
+        const overrides = rows.filter(r => r.user_override)
+        setChallenges(overrides)
       })
       .catch(err => {
         console.warn('Could not fetch recent predictions, using mock:', err.message)
@@ -499,6 +506,89 @@ function App() {
           )}
         </div>
  
+        {/* Challenged Grades */}
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '1rem', color: 'var(--text)' }}>
+            Challenged Grades
+          </h2>
+          {challenges.length === 0 ? (
+            <p style={{ color: 'var(--muted)', fontStyle: 'italic' }}>No challenged grades</p>
+          ) : (
+            <table className="product-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Product</th>
+                  <th>AI Grade</th>
+                  <th>Suggested Grade</th>
+                  <th>Reason</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {challenges.map(c => (
+                  <tr key={c.id}>
+                    <td>{new Date(c.timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
+                    <td>{c.input_data?.filename?.replace('products/', '').replace(/\.\w+$/, '') || 'Unknown'}</td>
+                    <td>
+                      <strong style={{ color: '#c0392b' }}>
+                        Grade {c.override_value?.original_grade || c.prediction?.grade}
+                      </strong>
+                    </td>
+                    <td>
+                      <strong style={{ color: 'var(--accent)' }}>
+                        Grade {c.override_value?.suggested_grade}
+                      </strong>
+                    </td>
+                    <td style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+                      {c.override_value?.reason || '—'}
+                    </td>
+                    <td>
+                      {c.override_value?.resolved ? (
+                        <span style={{ 
+                          fontSize: '0.8rem', 
+                          fontWeight: 600,
+                          color: c.override_value.resolved === 'approved' ? 'var(--accent)' : '#c0392b' 
+                        }}>
+                          {c.override_value.resolved === 'approved' ? '✓ Approved' : '✗ Rejected'}
+                        </span>
+                      ) : (
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await axios.post(`${DESD_URL}/api/ai-logs/${c.id}/resolve/`, { action: 'approve' })
+                                setChallenges(prev => prev.map(ch => 
+                                  ch.id === c.id ? { ...ch, override_value: { ...ch.override_value, resolved: 'approved' } } : ch
+                                ))
+                              } catch (err) { console.error('Approve failed:', err) }
+                            }}
+                            style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer' }}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await axios.post(`${DESD_URL}/api/ai-logs/${c.id}/resolve/`, { action: 'reject' })
+                                setChallenges(prev => prev.map(ch => 
+                                  ch.id === c.id ? { ...ch, override_value: { ...ch.override_value, resolved: 'rejected' } } : ch
+                                ))
+                              } catch (err) { console.error('Reject failed:', err) }
+                            }}
+                            style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', background: '#c0392b', color: '#fff', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer' }}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
         {/* Order Prediction SHAP Card */}
         <div className="card" style={{ marginBottom: '1.5rem' }}>
           <h2 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '0.5rem', color: 'var(--text)' }}>
