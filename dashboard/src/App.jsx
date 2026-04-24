@@ -333,6 +333,24 @@ useEffect(() => {
       setLoading(false)
     }
   }
+  const handleReviewChallenge = async (filename) => {
+    try {
+      const imageUrl = `${DESD_URL}/media/${filename}`;
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const file = new File([blob], filename, { type: blob.type });
+      
+      // Set the image into the existing upload flow
+      setSelectedImage(file);
+      setImagePreview(URL.createObjectURL(blob));
+      
+      // Auto-scroll to the upload section
+      document.getElementById('file-upload')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (err) {
+      console.error('Failed to fetch product image:', err);
+      alert('Could not load product image from marketplace');
+    }
+  };
   const overallAvg = accuracyData.length > 0 
     ? (accuracyData.reduce((sum, d) => sum + d.accuracy, 0) / accuracyData.length).toFixed(1)
     : 0;
@@ -522,6 +540,7 @@ useEffect(() => {
                   <th>AI Grade</th>
                   <th>Suggested Grade</th>
                   <th>Reason</th>
+                  <th>Image</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -542,6 +561,15 @@ useEffect(() => {
                     </td>
                     <td style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
                       {c.override_value?.reason || '—'}
+                    </td>
+                    <td>
+                      {c.input_data?.filename && (
+                        <img 
+                          src={`${DESD_URL}/media/${c.input_data.filename}`} 
+                          alt="Product"
+                          style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }}
+                        />
+                      )}
                     </td>
                     <td>
                       {c.override_value?.resolved ? (
@@ -582,6 +610,14 @@ useEffect(() => {
                           </button>
                         </div>
                       )}
+                    </td>
+                    <td>
+                        <button
+                          onClick={() => handleReviewChallenge(c.input_data?.filename)}
+                          style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', background: '#6c757d', color: '#fff', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer' }}
+                        >
+                          Review
+                        </button>
                     </td>
                   </tr>
                 ))}
